@@ -59,49 +59,81 @@ def build_agent_graph(scope: AuthorizedScope):
     return graph.compile()
 
 
-def run_agent(question: str, scope: AuthorizedScope) -> dict:
-    """Fast-path grounded legal Q&A agent.
-    Performs high-speed direct vector search first (sub-50ms) and executes
-    a single-pass grounded generation, cutting out multiple LLM roundtrips.
+def run_agent(
+    question: str,
+    scope: AuthorizedScope,
+    conversation_context: list[dict] | None = None,
+    user_memories: list[Any] | None = None,
+) -> dict:
+    """Legal Q&A agent with RAG-first, personal memory, and general-knowledge fallback.
+
+    Flow:
+    1. Try vector search for relevant document chunks strictly scoped to the user.
+    2. Incorporate user memory preferences and recent conversation context.
+    3. Ground answer citing document evidence, retaining user tone preferences.
     """
-    settings = get_settings()
     chunks = retrieve_chunks(question, scope)
 
-    if not chunks:
-        logger.info("run_agent: no matching chunks found, returning fallback")
-        return {
-            "answer": settings["agent"]["fallback_message"],
-            "sources": [],
-            "is_fallback": True,
-        }
+    # Format user memory instructions if present
+    memory_block = ""
+    if user_memories:
+        from src.memory.service import get_memory_service
+        memory_block = "\n" + get_memory_service().format_memory_context(user_memories) + "\n"
 
-    sources = []
-    seen = set()
-    for c in chunks:
-        key = (c.file_name, c.page_number)
-        if key not in seen:
-            seen.add(key)
-            sources.append({
-                "file_name": c.file_name,
-                "page_number": c.page_number,
-                "doc_id": c.doc_id,
-            })
+    # Format recent conversation context if present
+    conv_block = ""
+    if conversation_context:
+        recent = conversation_context[-6:]
+        conv_lines = [f"- {m.get('role', 'user').capitalize()}: {m.get('content', '')}" for m in recent]
+        conv_block = "\n[RECENT CONVERSATION HISTORY]\n" + "\n".join(conv_lines) + "\n"
 
-    evidence_blocks = [
-        f"--- [Source: {c.file_name}, Page: {c.page_number}] ---\n{c.text}"
-        for c in chunks
-    ]
-    combined_evidence = "\n\n".join(evidence_blocks)
+    base_prompt = _system_prompt()
+    if memory_block:
+        base_prompt += "\n" + memory_block
 
-    system_msg = SystemMessage(content=_system_prompt())
-    human_msg = HumanMessage(
-        content=(
+    if chunks:
+        # --- GROUNDED MODE: answer from document evidence ---
+        sources = []
+        seen = set()
+        for c in chunks:
+            key = (c.file_name, c.page_number)
+            if key not in seen:
+                seen.add(key)
+                sources.append({
+                    "file_name": c.file_name,
+                    "page_number": c.page_number,
+                    "doc_id": c.doc_id,
+                })
+
+        evidence_blocks = [
+            f"--- [Source: {c.file_name}, Page: {c.page_number}] ---\n{c.text}"
+            for c in chunks
+        ]
+        combined_evidence = "\n\n".join(evidence_blocks)
+
+        system_msg = SystemMessage(content=base_prompt)
+        human_content = (
+            f"{conv_block}\n"
             f"User Question:\n{question}\n\n"
             f"Authorized Document Evidence:\n{combined_evidence}\n\n"
-            "Instructions: Provide a clear, accurate, and professional legal answer strictly grounded in the authorized evidence above. "
-            "Cite the specific document name and page number for each key point."
+            "Instructions: Answer using the document evidence above. "
+            "Cite the document name and page number for each key point. "
+            "If the documents don't fully answer the question, supplement with your general legal knowledge and clearly label which parts come from documents vs general knowledge."
         )
-    )
+        human_msg = HumanMessage(content=human_content.strip())
+    else:
+        # --- GENERAL KNOWLEDGE MODE: no documents matched, use LLM expertise ---
+        logger.info("run_agent: no matching chunks — using general legal knowledge mode")
+        sources = []
+        system_msg = SystemMessage(content=base_prompt)
+        human_content = (
+            f"{conv_block}\n"
+            f"User Question:\n{question}\n\n"
+            "Note: No specific case documents are available for this question. "
+            "Answer using your general legal knowledge and expertise while adhering to user memory preferences. "
+            "Clearly start your answer with 'Based on general legal principles:' and provide a thorough, accurate response."
+        )
+        human_msg = HumanMessage(content=human_content.strip())
 
     try:
         llm = get_llm()
@@ -113,65 +145,73 @@ def run_agent(question: str, scope: AuthorizedScope) -> dict:
             "is_fallback": False,
         }
     except Exception as e:
-        logger.warning("Error during fast LLM invocation, falling back to graph agent: %s", e)
-        app = build_agent_graph(scope)
-        initial_state: AgentState = {
-            "messages": [HumanMessage(content=question)],
-            "scope": scope,
-            "tool_calls_made": 0,
-        }
-        final_state = app.invoke(initial_state)
-        return {
-            "answer": final_state.get("answer", ""),
-            "sources": final_state.get("sources", []),
-            "is_fallback": final_state.get("is_fallback", False),
-        }
+        logger.warning("LLM invocation failed, trying graph agent: %s", e)
+        try:
+            app = build_agent_graph(scope)
+            initial_state: AgentState = {
+                "messages": [HumanMessage(content=question)],
+                "scope": scope,
+                "tool_calls_made": 0,
+            }
+            final_state = app.invoke(initial_state)
+            return {
+                "answer": final_state.get("answer", ""),
+                "sources": final_state.get("sources", []),
+                "is_fallback": final_state.get("is_fallback", False),
+            }
+        except Exception as e2:
+            logger.exception("Graph agent also failed: %s", e2)
+            return {
+                "answer": f"⚠️ LLM error: {str(e2)}",
+                "sources": [],
+                "is_fallback": True,
+            }
 
 
 def stream_agent(question: str, scope: AuthorizedScope):
     """Streams tokens in real-time as line-delimited JSON chunks for instantaneous UI response."""
-    settings = get_settings()
     chunks = retrieve_chunks(question, scope)
 
-    if not chunks:
-        yield json.dumps({
-            "type": "fallback",
-            "answer": settings["agent"]["fallback_message"],
-            "sources": [],
-            "is_fallback": True,
-        }) + "\n"
-        return
-
     sources = []
-    seen = set()
-    for c in chunks:
-        key = (c.file_name, c.page_number)
-        if key not in seen:
-            seen.add(key)
-            sources.append({
-                "file_name": c.file_name,
-                "page_number": c.page_number,
-                "doc_id": c.doc_id,
-            })
+    if chunks:
+        seen = set()
+        for c in chunks:
+            key = (c.file_name, c.page_number)
+            if key not in seen:
+                seen.add(key)
+                sources.append({
+                    "file_name": c.file_name,
+                    "page_number": c.page_number,
+                    "doc_id": c.doc_id,
+                })
+        yield json.dumps({"type": "sources", "sources": sources, "is_fallback": False}) + "\n"
 
-    # Yield citations immediately so the UI renders citation badges in <50ms
-    yield json.dumps({"type": "sources", "sources": sources, "is_fallback": False}) + "\n"
-
-    evidence_blocks = [
-        f"--- [Source: {c.file_name}, Page: {c.page_number}] ---\n{c.text}"
-        for c in chunks
-    ]
-    combined_evidence = "\n\n".join(evidence_blocks)
-
-    system_msg = SystemMessage(content=_system_prompt())
-    human_msg = HumanMessage(
-        content=(
-            f"User Question:\n{question}\n\n"
-            f"Authorized Document Evidence:\n{combined_evidence}\n\n"
-            "Instructions: Provide a clear, accurate, and professional legal answer strictly grounded in the authorized evidence above. "
-            "Cite the specific document name and page number for each key point."
+        evidence_blocks = [
+            f"--- [Source: {c.file_name}, Page: {c.page_number}] ---\n{c.text}"
+            for c in chunks
+        ]
+        combined_evidence = "\n\n".join(evidence_blocks)
+        system_msg = SystemMessage(content=_system_prompt())
+        human_msg = HumanMessage(
+            content=(
+                f"User Question:\n{question}\n\n"
+                f"Authorized Document Evidence:\n{combined_evidence}\n\n"
+                "Instructions: Answer using the document evidence above. Cite document name and page for each key point. "
+                "Supplement with general legal knowledge when needed and label it clearly."
+            )
         )
-    )
+    else:
+        logger.info("stream_agent: no chunks — using general legal knowledge mode")
+        yield json.dumps({"type": "sources", "sources": [], "is_fallback": False}) + "\n"
+        system_msg = SystemMessage(content=_system_prompt())
+        human_msg = HumanMessage(
+            content=(
+                f"User Question:\n{question}\n\n"
+                "Note: No specific case documents are available. "
+                "Answer using your general legal knowledge and expertise. "
+                "Clearly start your answer with 'Based on general legal principles:' and provide a thorough, accurate response."
+            )
+        )
 
     try:
         llm = get_llm()

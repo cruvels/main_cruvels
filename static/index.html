@@ -11,7 +11,179 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Marked.js for Markdown parsing -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=5.0">
+    <style>
+        /* Bulletproof Sidebar & Button Overrides */
+        .sidebar {
+            width: 320px !important;
+            height: 100vh !important;
+            max-height: 100vh !important;
+            display: flex !important;
+            flex-direction: column !important;
+            padding: 1.25rem 1rem !important;
+            gap: 0.85rem !important;
+            box-sizing: border-box !important;
+            overflow: hidden !important;
+        }
+
+        .sidebar-view-toggle {
+            display: flex !important;
+            background: rgba(15, 23, 42, 0.85) !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            border-radius: 10px !important;
+            padding: 3px !important;
+            gap: 4px !important;
+            flex-shrink: 0 !important;
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3) !important;
+        }
+
+        .sidebar-toggle-btn {
+            all: unset !important;
+            flex: 1 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            gap: 0.35rem !important;
+            background: transparent !important;
+            border: none !important;
+            color: #94a3b8 !important;
+            font-size: 0.75rem !important;
+            font-family: 'Plus Jakarta Sans', sans-serif !important;
+            font-weight: 500 !important;
+            padding: 0.45rem 0.3rem !important;
+            border-radius: 7px !important;
+            cursor: pointer !important;
+            transition: all 0.2s ease !important;
+            text-align: center !important;
+            box-sizing: border-box !important;
+        }
+
+        .sidebar-toggle-btn:hover {
+            color: #f8fafc !important;
+            background: rgba(255, 255, 255, 0.06) !important;
+        }
+
+        .sidebar-toggle-btn.active {
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%) !important;
+            color: #ffffff !important;
+            font-weight: 600 !important;
+            box-shadow: 0 2px 8px rgba(99, 102, 241, 0.4) !important;
+        }
+
+        .badge-counter {
+            background: rgba(255, 255, 255, 0.22) !important;
+            color: #ffffff !important;
+            padding: 1px 6px !important;
+            border-radius: 10px !important;
+            font-size: 0.65rem !important;
+            font-weight: 700 !important;
+            line-height: 1 !important;
+        }
+
+        .sidebar-scroll-body {
+            flex: 1 !important;
+            min-height: 0 !important;
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 0.85rem !important;
+            overflow: hidden !important;
+        }
+
+        .sidebar-pane {
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 0.45rem !important;
+            min-height: 0 !important;
+            overflow: hidden !important;
+        }
+
+        .sidebar-scroll-body.view-all .sidebar-pane {
+            flex: 1 1 50% !important;
+        }
+
+        .sidebar-scroll-body.view-chats .conversation-pane {
+            flex: 1 1 100% !important;
+            display: flex !important;
+        }
+        .sidebar-scroll-body.view-chats .document-pane {
+            display: none !important;
+        }
+
+        .sidebar-scroll-body.view-docs .document-pane {
+            flex: 1 1 100% !important;
+            display: flex !important;
+        }
+        .sidebar-scroll-body.view-docs .conversation-pane {
+            display: none !important;
+        }
+
+        .new-chat-pill-btn {
+            all: unset !important;
+            background: rgba(99, 102, 241, 0.18) !important;
+            border: 1px solid rgba(99, 102, 241, 0.35) !important;
+            color: #a5b4fc !important;
+            font-size: 0.72rem !important;
+            font-weight: 600 !important;
+            font-family: 'Plus Jakarta Sans', sans-serif !important;
+            padding: 2px 8px !important;
+            border-radius: 6px !important;
+            cursor: pointer !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            gap: 0.3rem !important;
+            transition: all 0.2s ease !important;
+            box-sizing: border-box !important;
+        }
+
+        .new-chat-pill-btn:hover {
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%) !important;
+            color: #ffffff !important;
+            border-color: transparent !important;
+            box-shadow: 0 2px 8px rgba(99, 102, 241, 0.35) !important;
+        }
+
+        .doc-item {
+            background: rgba(30, 41, 59, 0.6) !important;
+            border: 1px solid rgba(255, 255, 255, 0.08) !important;
+            border-radius: 8px !important;
+            padding: 0.55rem 0.75rem !important;
+            display: flex !important;
+            align-items: center !important;
+            gap: 0.55rem !important;
+            cursor: pointer !important;
+            transition: all 0.2s ease !important;
+            box-sizing: border-box !important;
+            margin-bottom: 0.35rem !important;
+        }
+
+        .doc-item:hover, .doc-item.active {
+            border-color: #6366f1 !important;
+            background: rgba(99, 102, 241, 0.18) !important;
+            box-shadow: 0 2px 8px rgba(99, 102, 241, 0.2) !important;
+        }
+
+        .doc-item i {
+            color: #38bdf8 !important;
+            font-size: 0.9rem !important;
+            flex-shrink: 0 !important;
+        }
+
+        .doc-chevron {
+            color: #64748b !important;
+            font-size: 0.75rem !important;
+            margin-left: auto !important;
+        }
+
+        .sidebar-footer {
+            margin-top: auto !important;
+            flex-shrink: 0 !important;
+            padding-top: 0.75rem !important;
+            border-top: 1px solid var(--border-color) !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+        }
+    </style>
 </head>
 <body>
     <div class="app-container">
@@ -39,104 +211,418 @@
                 </div>
             </div>
 
-            <!-- Quick Action: Upload Document -->
-            <div class="section-title">
-                <i class="fa-solid fa-folder-open"></i> Knowledge Base
-            </div>
-            
-            <div class="upload-zone" id="dropZone">
-                <input type="file" id="fileInput" accept=".pdf,.txt,.docx" hidden>
-                <div class="upload-content">
-                    <i class="fa-solid fa-cloud-arrow-up upload-icon"></i>
-                    <p><strong>Click or Drag PDF/TXT</strong></p>
-                    <span>Upload legal document</span>
-                </div>
+            <!-- Sidebar Navigation Segmented Switcher -->
+            <div class="sidebar-view-toggle" role="tablist">
+                <button type="button" class="sidebar-toggle-btn active" id="sidebarToggleAll" data-view="all" title="Split view of Chats & Docs">
+                    <i class="fa-solid fa-table-columns"></i> Split
+                </button>
+                <button type="button" class="sidebar-toggle-btn" id="sidebarToggleChats" data-view="chats" title="Focus Conversations">
+                    <i class="fa-solid fa-comments"></i> Chats <span class="badge-counter" id="convCountBadge">0</span>
+                </button>
+                <button type="button" class="sidebar-toggle-btn" id="sidebarToggleDocs" data-view="docs" title="Focus Documents">
+                    <i class="fa-solid fa-folder"></i> Docs <span class="badge-counter" id="docCountBadge">0</span>
+                </button>
             </div>
 
-            <!-- Ingested Document List -->
-            <div class="document-list-container">
-                <div class="doc-header">
-                    <span>Ingested Files</span>
-                    <div class="doc-header-actions">
-                        <button class="icon-btn" id="refreshDocsBtn" title="Refresh files"><i class="fa-solid fa-rotate-right"></i></button>
-                        <button class="icon-btn icon-btn-danger" id="clearKbBtn" title="Clear Knowledge Base"><i class="fa-solid fa-trash-can"></i></button>
+            <!-- Scrollable Body with Independent Non-Overlapping Sections -->
+            <div class="sidebar-scroll-body view-all" id="sidebarScrollBody">
+                
+                <!-- Section 1: Conversations History -->
+                <div class="sidebar-pane conversation-pane" id="conversationPane">
+                    <div class="doc-header">
+                        <span class="section-heading"><i class="fa-solid fa-comments"></i> Conversations</span>
+                        <button type="button" class="new-chat-pill-btn" id="newChatBtn" title="Start New Conversation">
+                            <i class="fa-solid fa-plus"></i> New
+                        </button>
+                    </div>
+                    <div class="pane-list-wrapper">
+                        <ul class="conversation-list" id="conversationList">
+                            <li class="empty-conv">No conversations yet</li>
+                        </ul>
                     </div>
                 </div>
-                <ul class="document-list" id="documentList">
-                    <li class="empty-doc">No documents ingested</li>
-                </ul>
+
+                <!-- Section 2: Ingested Document List & Upload -->
+                <div class="sidebar-pane document-pane" id="documentPane">
+                    <div class="doc-header">
+                        <span class="section-heading"><i class="fa-solid fa-folder-closed"></i> My Documents</span>
+                        <div class="doc-header-actions">
+                            <button class="icon-btn" id="refreshDocsBtn" title="Refresh files"><i class="fa-solid fa-rotate-right"></i></button>
+                            <button class="icon-btn icon-btn-danger" id="clearKbBtn" title="Clear Knowledge Base"><i class="fa-solid fa-trash-can"></i></button>
+                        </div>
+                    </div>
+
+                    <!-- Sleek Compact Upload Zone -->
+                    <div class="upload-zone compact" id="dropZone">
+                        <input type="file" id="fileInput" accept=".pdf,.txt,.docx" hidden>
+                        <div class="upload-content">
+                            <i class="fa-solid fa-cloud-arrow-up upload-icon"></i>
+                            <p><strong>Upload Legal File</strong></p>
+                            <span>Click or drag PDF/TXT/DOCX</span>
+                        </div>
+                    </div>
+
+                    <div class="pane-list-wrapper">
+                        <ul class="document-list" id="documentList">
+                            <li class="empty-doc">No documents ingested</li>
+                        </ul>
+                    </div>
+                </div>
+
             </div>
 
             <div class="sidebar-footer">
-                <div class="user-chip">
-                    <i class="fa-solid fa-user-shield"></i>
+                <div class="user-chip" id="userChipBtn" title="Account & Profile">
+                    <div class="user-avatar-badge" id="userAvatarBadge"><i class="fa-solid fa-user"></i></div>
                     <div class="user-info">
-                        <span class="user-name">Firm Member</span>
-                        <span class="user-role">Scope: Shared / Internal</span>
+                        <span class="user-name" id="userNameDisplay">Sign In</span>
+                        <span class="user-role" id="userEmailDisplay">Personal AI Memory</span>
                     </div>
                 </div>
+                <button class="icon-btn" id="authActionBtn" title="Sign Out / Switch User">
+                    <i class="fa-solid fa-arrow-right-from-bracket" id="authActionIcon"></i>
+                </button>
             </div>
         </aside>
 
-        <!-- Main Chat Content -->
+        <!-- Main Content Area -->
         <main class="chat-main">
-            <!-- Header -->
+            <!-- Header with Tabs -->
             <header class="chat-header">
                 <div class="header-title">
-                    <h1>AI Legal Assistant</h1>
-                    <p>Agentic Document Understanding & Legal Contract Q&A</p>
+                    <h1>Cruvels AI Legal Knowledge Platform</h1>
+                    <p>Individual Authentication &bull; Personal AI Memory &bull; Private Knowledge Base &bull; Grounded RAG</p>
                 </div>
-                <div class="header-actions">
+                <div class="header-tabs">
+                    <button class="tab-btn active" id="tabQaBtn"><i class="fa-solid fa-comments"></i> Legal Q&A / RAG</button>
+                    <button class="tab-btn" id="tabDraftingBtn"><i class="fa-solid fa-pen-nib"></i> Drafting & Style</button>
+                    <button class="tab-btn" id="tabKnowledgeBtn"><i class="fa-solid fa-diagram-project"></i> Knowledge Inspector</button>
+                    <button class="tab-btn" id="tabMemoryBtn"><i class="fa-solid fa-brain"></i> Personal Memory</button>
                     <button class="btn btn-secondary" id="clearChatBtn">
-                        <i class="fa-solid fa-broom"></i> Clear Chat
+                        <i class="fa-solid fa-broom"></i> Clear
                     </button>
                 </div>
             </header>
 
-            <!-- Chat Messages Container -->
-            <div class="chat-viewport" id="chatViewport">
-                <!-- Welcome Screen / Sample Prompts -->
-                <div class="welcome-screen" id="welcomeScreen">
-                    <div class="welcome-icon">
-                        <i class="fa-solid fa-file-contract"></i>
-                    </div>
-                    <h2>Welcome to Cruvels Legal RAG</h2>
-                    <p>Ask questions about your ingested contracts, non-disclosure agreements, clauses, parties, or obligations.</p>
-                    
-                    <div class="prompts-section">
-                        <div class="prompts-header">
-                            <span id="promptsTitle"><i class="fa-solid fa-sparkles"></i> Document Suggested Questions</span>
-                            <button class="icon-btn" id="refreshSuggestionsBtn" title="Regenerate suggestions from documents"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
+            <!-- Tab 1: Chat Viewport -->
+            <div class="tab-view active" id="viewQa">
+                <div class="chat-viewport" id="chatViewport">
+                    <!-- Welcome Screen / Sample Prompts -->
+                    <div class="welcome-screen" id="welcomeScreen">
+                        <div class="welcome-icon">
+                            <i class="fa-solid fa-file-contract"></i>
                         </div>
-                        <div class="sample-prompts" id="samplePrompts">
-                            <!-- Dynamic prompt cards injected via app.js -->
+                        <h2>Welcome to Cruvels Legal Knowledge Platform</h2>
+                        <p>Ask questions about your uploaded private contracts, judgments, clauses, or legal obligations.</p>
+                        
+                        <div class="prompts-section">
+                            <div class="prompts-header">
+                                <span id="promptsTitle"><i class="fa-solid fa-sparkles"></i> Document Suggested Questions</span>
+                                <button class="icon-btn" id="refreshSuggestionsBtn" title="Regenerate suggestions from documents"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
+                            </div>
+                            <div class="sample-prompts" id="samplePrompts"></div>
                         </div>
                     </div>
+
+                    <div class="chat-messages" id="chatMessages"></div>
                 </div>
 
-                <div class="chat-messages" id="chatMessages"></div>
+                <!-- Chat Input Area -->
+                <footer class="chat-input-area">
+                    <form id="chatForm" class="input-wrapper">
+                        <textarea 
+                            id="userQuery" 
+                            placeholder="Ask any legal question... (e.g. 'What is the termination clause in my agreement?')"
+                            rows="1"
+                            required
+                        ></textarea>
+                        <button type="submit" class="send-btn" id="sendBtn" title="Send Question">
+                            <i class="fa-solid fa-paper-plane"></i>
+                        </button>
+                    </form>
+                    <div class="input-disclaimer">
+                        <i class="fa-solid fa-circle-info"></i> All answers include verifiable document citations and fall back when evidence is absent.
+                    </div>
+                </footer>
             </div>
 
-            <!-- Chat Input Area -->
-            <footer class="chat-input-area">
-                <form id="chatForm" class="input-wrapper">
-                    <textarea 
-                        id="userQuery" 
-                        placeholder="Ask any legal or contract question... (e.g. 'What is the termination clause?')"
-                        rows="1"
-                        required
-                    ></textarea>
-                    <button type="submit" class="send-btn" id="sendBtn" title="Send Question">
-                        <i class="fa-solid fa-paper-plane"></i>
-                    </button>
-                </form>
-                <div class="input-disclaimer">
-                    <i class="fa-solid fa-circle-info"></i> All answers include verifiable document citations and fall back when evidence is absent.
+            <!-- Tab 2: Drafting & Style Studio -->
+            <div class="tab-view" id="viewDrafting" style="display: none;">
+                <div class="studio-container">
+                    <div class="studio-sidebar">
+                        <h3><i class="fa-solid fa-sliders"></i> Drafting Parameters</h3>
+                        <div class="form-group">
+                            <label>Document Type</label>
+                            <select id="draftDocType" class="form-select">
+                                <option value="Legal Notice Response">Legal Notice Response</option>
+                                <option value="Commercial Contract Addendum">Commercial Contract Addendum</option>
+                                <option value="Written Statement / Defense">Written Statement / Defense</option>
+                                <option value="Arbitration Notice">Arbitration Notice</option>
+                                <option value="Settlement Agreement">Settlement Agreement</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Style Profile</label>
+                            <div class="style-badge" id="activeStyleBadge">
+                                <i class="fa-solid fa-feather-pointed"></i>
+                                <span>Formal / Precise (Avg len: 22 words)</span>
+                            </div>
+                            <button class="btn btn-secondary btn-sm" id="reanalyzeStyleBtn" style="margin-top: 8px;">
+                                <i class="fa-solid fa-arrows-rotate"></i> Re-analyze My Style
+                            </button>
+                        </div>
+                        <div class="form-group">
+                            <label>Instruction / Drafting Goal</label>
+                            <textarea id="draftInstructions" class="form-textarea" rows="4" placeholder="E.g. Draft a formal reply denying breach of contract and asserting Section 73 limitation defense..."></textarea>
+                        </div>
+                        <button class="btn btn-primary" id="generateDraftBtn">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i> Generate Grounded Draft
+                        </button>
+                    </div>
+                    <div class="studio-main">
+                        <div class="studio-header">
+                            <h3 id="draftResultTitle"><i class="fa-solid fa-file-lines"></i> Draft Preview</h3>
+                            <button class="btn btn-secondary btn-sm" id="copyDraftBtn"><i class="fa-solid fa-copy"></i> Copy</button>
+                        </div>
+                        <div class="draft-output" id="draftOutput">
+                            <div class="draft-placeholder">
+                                <i class="fa-solid fa-pen-ruler"></i>
+                                <p>Fill in instructions and click <strong>Generate Grounded Draft</strong>.</p>
+                            </div>
+                        </div>
+                        <div class="validation-panel" id="validationPanel" style="display: none;">
+                            <h4><i class="fa-solid fa-shield-check"></i> Validation Report</h4>
+                            <div id="validationNotes"></div>
+                        </div>
+                    </div>
                 </div>
-            </footer>
+            </div>
+
+            <!-- Tab 3: Knowledge Inspector -->
+            <div class="tab-view" id="viewKnowledge" style="display: none;">
+                <div class="inspector-container">
+                    
+                    <!-- Top Control Deck: Document Selector & Overview -->
+                    <div class="inspector-control-deck">
+                        <div class="inspector-deck-top">
+                            <!-- Document Dropdown Selector -->
+                            <div class="inspector-dropdown-hero">
+                                <label for="inspectorDocSelect"><i class="fa-solid fa-file-invoice"></i> Select Active Document:</label>
+                                <div class="select-wrapper">
+                                    <i class="fa-solid fa-file-contract select-icon"></i>
+                                    <select id="inspectorDocSelect" class="inspector-select-input">
+                                        <option value="">Choose an ingested document...</option>
+                                    </select>
+                                    <i class="fa-solid fa-chevron-down select-chevron"></i>
+                                </div>
+                            </div>
+
+                            <!-- Quick Document Pill Switcher -->
+                            <div class="inspector-doc-ribbon-container">
+                                <span class="ribbon-label"><i class="fa-solid fa-layer-group"></i> Quick Switch:</span>
+                                <div class="inspector-doc-ribbon" id="inspectorDocRibbon"></div>
+                            </div>
+                        </div>
+
+                        <!-- Active Document Meta Card -->
+                        <div class="inspector-deck-bottom">
+                            <div class="active-doc-banner" id="activeDocBanner">
+                                <div class="doc-badge-icon"><i class="fa-solid fa-file-lines" id="activeDocIcon"></i></div>
+                                <div class="doc-meta-details">
+                                    <div class="doc-meta-title-row">
+                                        <h4 id="activeDocTitle">No document selected</h4>
+                                        <span class="doc-type-pill" id="activeDocTypeBadge">DOCUMENT</span>
+                                        <span class="doc-status-pill" id="activeDocStatusBadge">READY</span>
+                                    </div>
+                                    <div class="doc-meta-stats" id="activeDocStats">
+                                        <span><i class="fa-solid fa-folder-tree"></i> <strong id="statSecCount">0</strong> Sections</span>
+                                        <span><i class="fa-solid fa-id-card"></i> <strong id="statEntCount">0</strong> Entities</span>
+                                        <span><i class="fa-solid fa-scale-balanced"></i> <strong id="statConcCount">0</strong> Concepts</span>
+                                        <span><i class="fa-solid fa-circle-check"></i> <strong id="statClmCount">0</strong> Claims</span>
+                                        <span class="meta-sep">&bull;</span>
+                                        <span><i class="fa-solid fa-database"></i> Auto-Indexed in Personal KB</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 4-Card Explorer Grid -->
+                    <div class="inspector-grid" id="inspectorGrid">
+                        <!-- Card 1: Sections / Outline -->
+                        <div class="inspector-card">
+                            <div class="inspector-card-header">
+                                <h4><i class="fa-solid fa-folder-tree"></i> Document Outline &amp; Sections</h4>
+                                <span class="card-count-badge" id="countSections">0</span>
+                            </div>
+                            <ul id="inspectorSections" class="inspector-list">
+                                <li>Select or upload a document to inspect structure.</li>
+                            </ul>
+                        </div>
+                        <!-- Card 2: Extracted Entities -->
+                        <div class="inspector-card">
+                            <div class="inspector-card-header">
+                                <h4><i class="fa-solid fa-id-card"></i> Extracted Entities</h4>
+                                <span class="card-count-badge" id="countEntities">0</span>
+                            </div>
+                            <div class="entity-filter-bar" id="entityFilterBar" style="display: none;"></div>
+                            <div id="inspectorEntities" class="tag-cloud"></div>
+                        </div>
+                        <!-- Card 3: Legal Concepts -->
+                        <div class="inspector-card">
+                            <div class="inspector-card-header">
+                                <h4><i class="fa-solid fa-scale-unbalanced-flip"></i> Legal Concepts &amp; Topics</h4>
+                                <span class="card-count-badge" id="countConcepts">0</span>
+                            </div>
+                            <div id="inspectorConcepts" class="concept-cards-container"></div>
+                        </div>
+                        <!-- Card 4: Verified Claims -->
+                        <div class="inspector-card">
+                            <div class="inspector-card-header">
+                                <h4><i class="fa-solid fa-quote-left"></i> Verified Claims &amp; Obligations</h4>
+                                <span class="card-count-badge" id="countClaims">0</span>
+                            </div>
+                            <ul id="inspectorClaims" class="inspector-list claims-list"></ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 4: Personal AI Memory Management -->
+            <div class="tab-view" id="viewMemory" style="display: none;">
+                <div class="memory-container">
+                    <!-- Top Control Deck -->
+                    <div class="memory-control-deck">
+                        <div class="memory-deck-left">
+                            <div class="memory-title-row">
+                                <h3><i class="fa-solid fa-brain"></i> Personal AI Memory Studio</h3>
+                                <span class="doc-type-pill">User Scoped</span>
+                            </div>
+                            <p class="memory-deck-desc">Manage your personalized AI preferences, writing style instructions, and context rules that automatically tailor all legal analysis.</p>
+                        </div>
+                        <div class="memory-deck-actions">
+                            <div class="memory-toggle-group">
+                                <label class="switch">
+                                    <input type="checkbox" id="autoMemoryToggle" checked>
+                                    <span class="slider round"></span>
+                                </label>
+                                <span class="toggle-label"><i class="fa-solid fa-wand-magic-sparkles"></i> Auto-Learn from Chats</span>
+                            </div>
+                            <button class="btn btn-primary btn-sm" id="openAddMemoryBtn">
+                                <i class="fa-solid fa-plus"></i> Add Memory
+                            </button>
+                            <button class="btn btn-secondary btn-sm" id="clearAllMemoriesBtn" title="Clear all personal memories">
+                                <i class="fa-solid fa-trash-can"></i> Clear All
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Filter Bar -->
+                    <div class="memory-filter-bar" id="memoryFilterBar">
+                        <button class="memory-filter-btn active" data-type="all">All Memories (<span id="memCountAll">0</span>)</button>
+                        <button class="memory-filter-btn" data-type="PREFERENCE">Preferences (<span id="memCountPref">0</span>)</button>
+                        <button class="memory-filter-btn" data-type="WRITING_STYLE">Writing Style (<span id="memCountStyle">0</span>)</button>
+                        <button class="memory-filter-btn" data-type="PROFILE">Profile (<span id="memCountProf">0</span>)</button>
+                        <button class="memory-filter-btn" data-type="WORKFLOW">Workflow (<span id="memCountWork">0</span>)</button>
+                        <button class="memory-filter-btn" data-type="CONTEXT">Context (<span id="memCountCtx">0</span>)</button>
+                    </div>
+
+                    <!-- Memories Cards Grid -->
+                    <div class="memories-grid" id="memoriesGrid">
+                        <div class="memory-empty-state">
+                            <i class="fa-solid fa-brain"></i>
+                            <h4>No Personal Memories Stored Yet</h4>
+                            <p>As you chat, Cruvels AI remembers your stable legal preferences, tone requirements, and workflow instructions.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </main>
     </div>
 
-    <script src="app.js"></script>
+    <!-- Authentication Modal (Appwrite / Local Secure Session) -->
+    <div class="modal-overlay" id="authModal" style="display: none;">
+        <div class="modal-card auth-modal-card">
+            <div class="auth-header">
+                <div class="auth-logo"><i class="fa-solid fa-scale-balanced"></i></div>
+                <h3 id="authModalTitle">Sign In to Cruvels AI</h3>
+                <p id="authModalSubtitle">Secure, private legal intelligence & personal AI memory</p>
+            </div>
+
+            <form id="authForm" class="auth-form">
+                <div class="auth-name-row" id="authNameRow" style="display: none;">
+                    <div class="form-group">
+                        <label>First Name</label>
+                        <input type="text" id="authFirstName" class="form-input" placeholder="e.g. Rachel">
+                    </div>
+                    <div class="form-group">
+                        <label>Last Name</label>
+                        <input type="text" id="authLastName" class="form-input" placeholder="e.g. Zane">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Email Address</label>
+                    <input type="email" id="authEmail" class="form-input" required placeholder="lawyer@firm.com">
+                </div>
+
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="authPassword" class="form-input" required placeholder="••••••••">
+                </div>
+
+                <div class="auth-error-banner" id="authErrorBanner" style="display: none;"></div>
+
+                <button type="submit" class="btn btn-primary btn-block" id="authSubmitBtn">
+                    <i class="fa-solid fa-right-to-bracket"></i> Sign In
+                </button>
+            </form>
+
+            <div class="auth-footer">
+                <span id="authToggleText">Don't have an account?</span>
+                <a href="#" id="authToggleLink">Create Account</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Long-Term Memory Modal -->
+    <div class="modal-overlay" id="addMemoryModal" style="display: none;">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h4><i class="fa-solid fa-brain"></i> Add Long-Term Memory</h4>
+                <button class="icon-btn" id="closeAddMemoryBtn"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="addMemoryForm" class="modal-body">
+                <div class="form-group">
+                    <label>Memory Classification</label>
+                    <select id="newMemType" class="form-select">
+                        <option value="PREFERENCE">Preference (e.g. 'Format answers with executive summaries')</option>
+                        <option value="WRITING_STYLE">Writing Style (e.g. 'Use formal, archaic legal tone')</option>
+                        <option value="PROFILE">Professional Profile (e.g. 'Senior In-House Counsel at FinTech')</option>
+                        <option value="WORKFLOW">Workflow Rule (e.g. 'Always double-check Section 73 limitations')</option>
+                        <option value="CONTEXT">Stable Context (e.g. 'Governed primarily by English Common Law')</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Memory Content</label>
+                    <textarea id="newMemContent" class="form-textarea" rows="3" required placeholder="State your preference or permanent rule..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Importance Level</label>
+                    <select id="newMemImportance" class="form-select">
+                        <option value="0.9">High Priority (0.9)</option>
+                        <option value="0.7" selected>Standard Priority (0.7)</option>
+                        <option value="0.5">Low Priority (0.5)</option>
+                    </select>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" id="cancelAddMemoryBtn">Cancel</button>
+                    <button type="submit" class="btn btn-primary"><i class="fa-solid fa-check"></i> Save Memory</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="app.js?v=5.0"></script>
 </body>
 </html>

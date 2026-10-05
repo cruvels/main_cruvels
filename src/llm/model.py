@@ -55,16 +55,18 @@ def get_llm():
             raise RuntimeError(
                 "OPENROUTER_API_KEY is not set. Add OPENROUTER_API_KEY to .env."
             )
+        # Cap max_tokens safely to 512 or configured setting to fit account credit allocation
+        tokens = min(int(settings["llm"].get("max_tokens", 512)), 512)
         return ChatOpenAI(
             model=settings["llm"]["model"],
             temperature=settings["llm"]["temperature"],
-            max_tokens=settings["llm"]["max_tokens"],
+            max_tokens=tokens,
             base_url=OPENROUTER_BASE_URL,
             api_key=api_key,
-            timeout=30.0,
-            max_retries=2,
+            timeout=12.0,
+            max_retries=1,
             default_headers={
-                "HTTP-Referer": "http://localhost:8000",
+                "HTTP-Referer": "http://localhost:8080",
                 "X-Title": "Cruvels AI Legal Assistant",
             },
         )

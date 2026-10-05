@@ -13,10 +13,18 @@ bge-small-local/
 data/vectorstore/
 .cache/
 
+# User Uploaded Documents and Runtime Processed Artifacts
+data/raw/users/
+data/processed/
+*.sqlite
+*.sqlite3
+*.db
+
 # Byte-compiled / Optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
+.pytest_cache/
 
 # OS & Editor Files
 .DS_Store
@@ -24,5 +32,8 @@ Thumbs.db
 .vscode/
 .idea/
 
-# Temporary / Log files
+# Temporary / Log files / Local Utilities
 *.log
+ngrok.zip
+run_update.ps1
+update_inspector.py
