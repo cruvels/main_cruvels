@@ -4,9 +4,29 @@ Enforces Individual Authentication, User-Scoped Memory, and Strict Authorization
 """
 from __future__ import annotations
 
+import sys
+import types
+import os
+
+# Disable Chroma telemetry and guard against Windows AppLocker/Application Control DLL blocks
+os.environ["ANONYMIZED_TELEMETRY"] = "False"
+os.environ["CHROMA_TELEMETRY"] = "False"
+
+try:
+    import grpc  # noqa: F401
+except Exception:
+    if "opentelemetry.exporter.otlp.proto.grpc.trace_exporter" not in sys.modules:
+        trace_mock = types.ModuleType("opentelemetry.exporter.otlp.proto.grpc.trace_exporter")
+
+        class MockOTLPSpanExporter:
+            def __init__(self, *args, **kwargs):
+                pass
+
+        trace_mock.OTLPSpanExporter = MockOTLPSpanExporter
+        sys.modules["opentelemetry.exporter.otlp.proto.grpc.trace_exporter"] = trace_mock
+
 import json
 import logging
-import os
 import re
 import shutil
 from pathlib import Path
