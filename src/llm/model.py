@@ -55,8 +55,9 @@ def get_llm():
             raise RuntimeError(
                 "OPENROUTER_API_KEY is not set. Add OPENROUTER_API_KEY to .env."
             )
-        # Allow sufficient token budget for reasoning tokens (400-600) + full answer generation
-        tokens = max(int(settings["llm"].get("max_tokens", 2048)), 2048)
+        # OpenRouter token budget: account balance covers ~1378 tokens.
+        # 1200 tokens permits ample reasoning tokens (~350) + response text (~850) without 402 errors.
+        tokens = min(int(settings["llm"].get("max_tokens", 1200)), 1200)
         return ChatOpenAI(
             model=settings["llm"]["model"],
             temperature=settings["llm"]["temperature"],

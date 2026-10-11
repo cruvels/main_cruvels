@@ -154,6 +154,8 @@ document.addEventListener("DOMContentLoaded", () => {
             openKnowledgeInspectorView();
         } else if (activeView === viewMemory) {
             fetchMemories();
+        } else if (activeView === viewDrafting) {
+            fetchStyleProfile();
         }
     }
 
@@ -335,6 +337,7 @@ document.addEventListener("DOMContentLoaded", () => {
             fetchConversations(),
             fetchMemories(),
             fetchSuggestions(),
+            fetchStyleProfile(),
         ]);
     }
 
@@ -1031,6 +1034,49 @@ document.addEventListener("DOMContentLoaded", () => {
     // -------------------------------------------------------------
     // Drafting & Style Studio Module
     // -------------------------------------------------------------
+    async function fetchStyleProfile() {
+        if (!activeStyleBadge) return;
+        try {
+            const res = await authFetch("/api/style/profile");
+            if (res.ok) {
+                const data = await res.json();
+                if (data.profile) {
+                    updateStyleBadge(data.profile);
+                }
+            }
+        } catch (err) {
+            console.warn("Could not load style profile:", err);
+        }
+    }
+
+    function updateStyleBadge(prof) {
+        if (!activeStyleBadge || !prof) return;
+        const tone = prof.preferred_tone ? prof.preferred_tone.split(",")[0].trim() : "Formal / Precise";
+        const avgLen = prof.average_sentence_length ? Math.round(prof.average_sentence_length) : 22;
+        activeStyleBadge.innerHTML = `<i class="fa-solid fa-feather-pointed"></i> <span>${escapeHtml(tone)} (Avg len: ${avgLen} words)</span>`;
+    }
+
+    if (reanalyzeStyleBtn) {
+        reanalyzeStyleBtn.addEventListener("click", async () => {
+            reanalyzeStyleBtn.disabled = true;
+            reanalyzeStyleBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Analyzing Style...';
+            try {
+                const res = await authFetch("/api/style/analyze", { method: "POST" });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.profile) {
+                        updateStyleBadge(data.profile);
+                    }
+                }
+            } catch (err) {
+                console.error("Error analyzing style:", err);
+            } finally {
+                reanalyzeStyleBtn.disabled = false;
+                reanalyzeStyleBtn.innerHTML = '<i class="fa-solid fa-arrows-rotate"></i> Re-analyze My Style';
+            }
+        });
+    }
+
     if (generateDraftBtn) {
         generateDraftBtn.addEventListener("click", async () => {
             const docType = draftDocType.value;
@@ -1053,24 +1099,50 @@ document.addEventListener("DOMContentLoaded", () => {
                     body: JSON.stringify({
                         document_type: docType,
                         instructions: instructions,
+                        request: instructions,
                     }),
                 });
 
                 if (res.ok) {
                     const data = await res.json();
-                    draftResultTitle.innerHTML = `<i class="fa-solid fa-file-signature"></i> ${escapeHtml(data.title || "Generated Legal Draft")}`;
-                    draftOutput.innerHTML = marked.parse(data.content);
+                    const draftTitle = data.document_title || data.title || `${docType} Draft`;
+                    draftResultTitle.innerHTML = `<i class="fa-solid fa-file-signature"></i> ${escapeHtml(draftTitle)}`;
+                    draftOutput.innerHTML = marked.parse(data.content || "");
 
-                    if (data.validation_notes && data.validation_notes.length > 0) {
+                    let notes = [];
+                    if (data.validation_notes && Array.isArray(data.validation_notes) && data.validation_notes.length > 0) {
+                        notes = data.validation_notes;
+                    } else if (data.validation) {
+                        if (data.validation.consistency_notes) notes.push(data.validation.consistency_notes);
+                        if (data.validation.verified_citations && data.validation.verified_citations.length > 0) {
+                            notes.push(`Verified Citations: ${data.validation.verified_citations.join(", ")}`);
+                        }
+                    }
+
+                    if (notes.length > 0) {
                         validationPanel.style.display = "block";
-                        validationNotes.innerHTML = data.validation_notes.map(n => `<div class="validation-item"><i class="fa-solid fa-check"></i> ${escapeHtml(n)}</div>`).join("");
+                        validationNotes.innerHTML = notes.map(n => `<div class="validation-item"><i class="fa-solid fa-check"></i> ${escapeHtml(n)}</div>`).join("");
+                    } else {
+                        validationPanel.style.display = "none";
                     }
                 } else {
-                    const err = await res.json();
-                    draftOutput.innerHTML = `<div class="draft-error-card"><i class="fa-solid fa-triangle-exclamation"></i><strong>Drafting Service Error</strong><p>${escapeHtml(err.detail || "Error generating draft")}</p></div>`;
+                    let errMsg = "Error generating draft";
+                    try {
+                        const err = await res.json();
+                        if (typeof err.detail === "string") {
+                            errMsg = err.detail;
+                        } else if (Array.isArray(err.detail)) {
+                            errMsg = err.detail.map(d => d.msg || JSON.stringify(d)).join("; ");
+                        } else if (err.detail && typeof err.detail === "object") {
+                            errMsg = err.detail.message || JSON.stringify(err.detail);
+                        } else if (err.message) {
+                            errMsg = err.message;
+                        }
+                    } catch (_) {}
+                    draftOutput.innerHTML = `<div class="draft-error-card"><i class="fa-solid fa-triangle-exclamation"></i><strong>Drafting Service Error</strong><p>${escapeHtml(errMsg)}</p></div>`;
                 }
             } catch (err) {
-                draftOutput.innerHTML = `<div class="draft-error-card"><i class="fa-solid fa-circle-xmark"></i><strong>Network Error</strong><p>${escapeHtml(err.message)}</p></div>`;
+                draftOutput.innerHTML = `<div class="draft-error-card"><i class="fa-solid fa-circle-xmark"></i><strong>Network Error</strong><p>${escapeHtml(err.message || "Failed to reach drafting service.")}</p></div>`;
             } finally {
                 generateDraftBtn.disabled = false;
                 generateDraftBtn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> Generate Grounded Draft';

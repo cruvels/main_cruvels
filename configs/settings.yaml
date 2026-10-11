@@ -10,7 +10,7 @@ llm:
   provider: openrouter
   model: moonshotai/kimi-k2.5
   temperature: 0.0
-  max_tokens: 2048
+  max_tokens: 1200
 
 embeddings:
   provider: huggingface

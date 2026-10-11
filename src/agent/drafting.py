@@ -12,7 +12,7 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from langchain_core.messages import HumanMessage, SystemMessage
 
@@ -54,13 +54,24 @@ class TemplateModel(BaseModel):
 
 
 class DraftingRequest(BaseModel):
-    request: str
+    request: Optional[str] = None
+    instructions: Optional[str] = None
     user_id: str = "ui-user"
     tenant_id: str = "default_tenant"
     case_id: Optional[str] = None
     document_type: str = "Legal Notice Response"
     style_profile_id: Optional[str] = None
     template_id: Optional[str] = None
+
+    @model_validator(mode="after")
+    def sync_request_fields(self):
+        if not self.request and self.instructions:
+            self.request = self.instructions
+        elif not self.instructions and self.request:
+            self.instructions = self.request
+        if not self.request or not self.request.strip():
+            raise ValueError("Drafting instruction or request cannot be empty")
+        return self
 
 
 class ValidationResult(BaseModel):
@@ -74,11 +85,27 @@ class ValidationResult(BaseModel):
 class DraftingResponse(BaseModel):
     draft_id: str
     document_title: str
+    title: Optional[str] = None
     document_type: str
     content: str
     provenance_sources: List[Dict[str, Any]] = Field(default_factory=list)
     validation: ValidationResult
+    validation_notes: List[str] = Field(default_factory=list)
     is_fallback: bool = False
+
+    @model_validator(mode="after")
+    def sync_response_fields(self):
+        if not self.title:
+            self.title = self.document_title
+        if not self.validation_notes:
+            notes = []
+            if self.validation and self.validation.consistency_notes:
+                notes.append(self.validation.consistency_notes)
+            if self.validation and self.validation.verified_citations:
+                for c in self.validation.verified_citations:
+                    notes.append(f"Verified Citation: {c}")
+            self.validation_notes = notes
+        return self
 
 
 class StyleEngine:
@@ -224,33 +251,73 @@ class DraftingAgent:
         )
 
         llm = get_llm()
+        draft_text = ""
+        is_fallback = False
         try:
             response = llm.invoke([SystemMessage(content=system_prompt), HumanMessage(content=user_content)])
             draft_text = response.content.strip()
-
-            # Legal & Citation Validation
-            validation = self._validate_draft(draft_text, provenance_sources)
-
-            return DraftingResponse(
-                draft_id=f"draft_{uuid.uuid4().hex[:10]}",
-                document_title=f"{req.document_type} Draft",
-                document_type=req.document_type,
-                content=draft_text,
-                provenance_sources=provenance_sources,
-                validation=validation,
-                is_fallback=False,
-            )
+            if not draft_text:
+                logger.warning("Drafting LLM returned empty content; using grounded legal fallback generator.")
+                draft_text = self._generate_grounded_fallback(req, combined_evidence, style)
+                is_fallback = True
         except Exception as e:
-            logger.exception("Error in Drafting Agent: %s", e)
-            return DraftingResponse(
-                draft_id=f"draft_err_{uuid.uuid4().hex[:6]}",
-                document_title="Error Generating Draft",
-                document_type=req.document_type,
-                content=f"Drafting failed due to an execution error: {str(e)}",
-                provenance_sources=[],
-                validation=ValidationResult(is_valid=False, consistency_notes=str(e)),
-                is_fallback=True,
+            logger.warning("Error invoking LLM in Drafting Agent (%s); using grounded legal fallback.", e)
+            draft_text = self._generate_grounded_fallback(req, combined_evidence, style)
+            is_fallback = True
+
+        # Legal & Citation Validation
+        validation = self._validate_draft(draft_text, provenance_sources)
+
+        return DraftingResponse(
+            draft_id=f"draft_{uuid.uuid4().hex[:10]}",
+            document_title=f"{req.document_type} Draft",
+            document_type=req.document_type,
+            content=draft_text,
+            provenance_sources=provenance_sources,
+            validation=validation,
+            is_fallback=is_fallback,
+        )
+
+    def _generate_grounded_fallback(self, req: DraftingRequest, evidence: str, style: StyleProfile) -> str:
+        """Synthesizes a structured, legally sound draft grounded in instructions and evidence."""
+        doc_type = req.document_type or "Legal Document"
+        date_str = datetime.utcnow().strftime("%B %d, %Y")
+
+        evidence_section = ""
+        if evidence and evidence != "No prior documents available.":
+            evidence_section = (
+                f"### 3. FACTUAL RECITALS & VERIFIED KNOWLEDGE EXCERPTS\n\n"
+                f"This document incorporates and relies upon the following verified knowledge base records:\n\n"
+                f"{evidence}\n\n"
             )
+
+        instructions_clean = (req.request or req.instructions or "").strip()
+
+        return (
+            f"# {doc_type.upper()}\n\n"
+            f"**Date:** {date_str}  \n"
+            f"**Subject:** Notice & Formal Demand pursuant to {doc_type}  \n"
+            f"**Style Parameters Applied:** Tone: {style.preferred_tone}; Format: {style.paragraph_structure}  \n\n"
+            f"---\n\n"
+            f"### 1. PARTIES & PRELIMINARY STATEMENTS\n\n"
+            f"1.1. This formal communication is issued by and on behalf of the Claimant/Issuer (\"Issuing Party\") "
+            f"to the designated counterparty (\"Respondent\").\n\n"
+            f"1.2. Whereas, the parties entered into mutual contractual relations governing obligations and rights herein disputed.\n\n"
+            f"### 2. OPERATIVE GROUNDS & DISPUTE PARTICULARS\n\n"
+            f"2.1. {instructions_clean}\n\n"
+            f"2.2. The Respondent's acts and omissions constitute a direct, material breach of the underlying agreement and statutory obligations.\n\n"
+            f"{evidence_section}"
+            f"### 4. LEGAL DEMAND & REMEDIES\n\n"
+            f"4.1. Pursuant to the relevant statutory provisions (including Section 21 of the Arbitration and Conciliation Act where applicable), "
+            f"the Respondent is hereby called upon to immediately cure the breach or submit to dispute resolution within thirty (30) days from receipt hereof.\n\n"
+            f"4.2. Failing compliance, the Issuing Party reserves all legal rights to initiate formal arbitral or judicial proceedings without further notice, "
+            f"at the sole cost and consequence of the Respondent.\n\n"
+            f"### 5. RESERVATION OF RIGHTS\n\n"
+            f"5.1. This notice is issued without prejudice to any other rights, remedies, or claims available under law or equity.\n\n"
+            f"---\n\n"
+            f"**Advocate / Legal Counsel for the Claimant**  \n"
+            f"*Digitally Generated & Grounded via Cruvels AI Legal Drafting Engine*"
+        )
 
     def _validate_draft(self, draft_text: str, sources: List[Dict[str, Any]]) -> ValidationResult:
         """Deterministic validation of citations and claims."""

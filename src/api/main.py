@@ -632,6 +632,7 @@ def generate_draft_endpoint(
     req: DraftingRequest,
     current_user: UserModel = Depends(get_current_user),
 ):
+    req.user_id = current_user.id
     agent = get_drafting_agent()
     draft = agent.generate_draft(req)
     return draft.model_dump()
