@@ -2,6 +2,9 @@
 
 Comprehensive architectural specification for the **Cruvels AI Legal Knowledge Assistant**, including end-to-end data flow, multi-agent orchestration, OCR ingestion pipeline, and dedicated vector database subsystem.
 
+> [!NOTE]
+> For the comprehensive **8-Layer Workflow Specification**, database entity relationships, and sequence diagrams, refer to the full document: [docs/ARCHITECTURE_WORKFLOW.md](docs/ARCHITECTURE_WORKFLOW.md).
+
 ---
 
 ## 1. End-to-End System Architecture
